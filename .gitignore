@@ -18,3 +18,4 @@ dist-ssr/
 node_modules
 .env
 Dockerfile
+serviceAccountKey.json
