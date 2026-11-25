@@ -20,11 +20,18 @@ export async function onRequest({ request, env }) {
 
     const hasBody = !["GET", "HEAD"].includes(request.method)
 
-    // The response, including Set-Cookie headers, is passed back unchanged.
-    return fetch(target, {
+    const upstream = await fetch(target, {
         method: request.method,
         headers,
         body: hasBody ? request.body : undefined,
         redirect: "manual",
     })
+
+    // fetch() has already decompressed the body, so drop the upstream encoding
+    // headers and let Cloudflare compress for each visitor. Everything else,
+    // including Set-Cookie, is passed back unchanged.
+    const response = new Response(upstream.body, upstream)
+    response.headers.delete("content-encoding")
+    response.headers.delete("content-length")
+    return response
 }

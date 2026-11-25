@@ -1,0 +1,9 @@
+# Cloudflare Pages project for the cortexai frontend.
+# Deploy:  npm run build && npx wrangler pages deploy
+name = "cortexai"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-11-01"
+
+[vars]
+# Where functions/api/[[path]].js forwards /api/* requests (the Render backend).
+BACKEND_URL = "https://cortexai-api-7o8u.onrender.com"
