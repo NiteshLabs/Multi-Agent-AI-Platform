@@ -5,7 +5,6 @@ import router from "./routes/billing.route.js";
 
 dotenv.config();
 
-console.log(process.env.MONGODB_URL);
 
 
 const port = process.env.PORT

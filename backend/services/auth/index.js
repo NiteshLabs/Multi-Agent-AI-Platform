@@ -4,7 +4,6 @@ import connectDB from "./config/db.js"
 import router from "./routes/auth.route.js";
 dotenv.config();
 
-console.log(process.env.MONGODB_URL);
 
 
 const port = process.env.PORT

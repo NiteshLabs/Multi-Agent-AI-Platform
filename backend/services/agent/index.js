@@ -6,7 +6,6 @@ import router  from "./routes/agent.route.js";
 
 dotenv.config();
 
-console.log(process.env.MONGODB_URL);
 
 
 const port = process.env.PORT
@@ -20,7 +19,7 @@ app.use((err,req,res,next)=>{
         return res.status(err.status).json(err.data) 
     }
 
-    return res.status(500).json({message:`Agent Error : ${error}`})
+    return res.status(500).json({message:`Agent Error : ${err?.message || err}`})
 })
 app.get("/", (req, res) => {
     res.json({ message: "hello from agent" })
