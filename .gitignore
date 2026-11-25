@@ -22,3 +22,6 @@ serviceAccountKey.json
 
 # Uploaded files (agent service saves user uploads here)
 backend/services/agent/temp/
+
+# Wrangler (Cloudflare) local cache
+.wrangler/
