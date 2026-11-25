@@ -45,7 +45,16 @@ ${state.prompt}
 
         const filename = `pdf-${Date.now()}.pdf`
         await uploadToS3(filename, pdfBuffer, "application/pdf")
-        const downloadUrl = await getFromS3(filename, 10 * 60)
+        // 24h so the review panel still works when the chat is reopened later
+        const downloadUrl = await getFromS3(filename, 24 * 60 * 60)
+
+        // Plain-text outline shown in the review panel's "Content" tab
+        const outline = [
+            `# ${data.title}`,
+            data.subtitle ? `_${data.subtitle}_` : "",
+            ...(data.sections || []).map(s =>
+                `## ${s.heading}\n${(s.points || []).map(p => `- ${p}`).join("\n")}`)
+        ].filter(Boolean).join("\n\n")
 
         return {
             ...state,
@@ -56,8 +65,17 @@ ${state.prompt}
 
 📥 [Download PDF](${downloadUrl})
 
-_Link expires in 10 minutes._
-`
+_Link expires in 24 hours._
+`,
+            artifacts: [
+                {
+                    id: Date.now(),
+                    type: "pdf",
+                    title: data.title,
+                    url: downloadUrl,
+                    files: [{ name: "content.md", content: outline }]
+                }
+            ]
         }
     } catch (error) {
         console.log(error)

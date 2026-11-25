@@ -1,4 +1,11 @@
 {
+  "name": "multi-agent-platform",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node start-all.js",
+    "dev": "node start-all.js"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.8.0",

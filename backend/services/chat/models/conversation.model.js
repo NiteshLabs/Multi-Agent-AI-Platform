@@ -7,6 +7,10 @@ const conversationSchema=new mongoose.Schema({
     },
     userId:{
         type:String
+    },
+    isPinned:{
+        type:Boolean,
+        default:false
     }
 },{
     timestamps:true

@@ -1,4 +1,4 @@
-import { Check, Code2, Copy, Eye, PanelRightClose, PanelRightOpen, X } from 'lucide-react'
+import { Check, Code2, Copy, Download, Eye, FileText, PanelRightClose, PanelRightOpen, Presentation, X } from 'lucide-react'
 import React, { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { AnimatePresence, easeIn, easeInOut, easeOut, motion } from "motion/react"
@@ -6,22 +6,50 @@ import Editor from '@monaco-editor/react';
 
 function Artifact() {
     const [collapsed, setCollapsed] = useState(false)
-    const { artifacts } = useSelector(state => state.message)
+    const { artifacts, viewerRequest } = useSelector(state => state.message)
     const [tab, setTab] = useState("code")
     const [activeFile, setActiveFile] = useState(0)
     const [copied, setCopied] = useState(false)
     const [mobileOpen, setMobileOpen] = useState(false)
 
+    // Document artifacts (PDF / PPT) have a link to the file instead of code.
+    const isPdf = artifacts[0]?.type === "pdf"
+    const isPpt = artifacts[0]?.type === "ppt"
+    const isDoc = isPdf || isPpt
+    const artifactId = artifacts[0]?.id
+
+    // A new artifact opens the panel on its natural tab: the document, or the code.
+    const [shownId, setShownId] = useState(undefined)
+    if (shownId !== artifactId) {
+        setShownId(artifactId)
+        setTab(isDoc ? "preview" : "code")
+        setActiveFile(0)
+        setCollapsed(false)
+    }
+
+    // A "View" click on a chat message: expand the panel, or open the drawer on mobile.
+    const [handledRequest, setHandledRequest] = useState(viewerRequest)
+    if (handledRequest !== viewerRequest) {
+        setHandledRequest(viewerRequest)
+        setCollapsed(false)
+        setMobileOpen(true)
+    }
 
     if (artifacts.length === 0) return;
 
 
-    const file = artifacts[0]?.files[activeFile]
+    const file = artifacts[0]?.files?.[activeFile]
     //console.log(file)
     const htmlFile = artifacts[0]?.files?.find(f => f.name === "index.html")
     const cssFile = artifacts[0]?.files?.find(f => f.name === "style.css")
     const jsFile = artifacts[0]?.files?.find(f => f.name === "script.js")
-    const canPreview = Boolean(htmlFile)
+    const canPreview = isDoc ? Boolean(artifacts[0]?.url) : Boolean(htmlFile)
+    const HeaderIcon = isPpt ? Presentation : isPdf ? FileText : Code2
+    // Browsers render PDFs natively; .pptx needs Microsoft's Office Online viewer,
+    // which fetches the file from its (signed) link.
+    const docSrc = isPpt
+        ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(artifacts[0]?.url || "")}`
+        : artifacts[0]?.url
     const previewDoc = `
 <!DOCTYPE html>
 <html lang="en">
@@ -72,6 +100,9 @@ function Artifact() {
         if (name.endsWith(".json"))
             return "json";
 
+        if (name.endsWith(".md"))
+            return "markdown";
+
         if (name.endsWith(".py"))
             return "python";
         if (name.endsWith(".java"))
@@ -97,7 +128,7 @@ function Artifact() {
                             </button>
                             <div className='flex items-center gap-2 flex-1 min-w-0'>
                                 <div className='flex items-center justify-center w-6 h-6 rounded-md bg-indigo-500/10 border border-indigo-500/20 shrink-0'>
-                                    <Code2 className='text-indigo-400' size={12} />
+                                    <HeaderIcon className='text-indigo-400' size={12} />
                                 </div>
 
                                 <div className='text-[13px] font-medium text-slate-200 truncate'>
@@ -106,12 +137,24 @@ function Artifact() {
                             </div>
 
                             <div className='flex items-center gap-1 shrink-0'>
-                                <button
-                                    onClick={handleCopy}
-                                    className='flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.05] rounded-lg transition-colors duration-150 bg-transparent border-none cursor-pointer'
-                                >
-                                    {copied ? <Check size={15} /> : <Copy size={15} />}
-                                </button>
+                                {isDoc ? (
+                                    <a
+                                        href={artifacts[0]?.url}
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                        title={isPpt ? 'Download PPT' : 'Download PDF'}
+                                        className='flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.05] rounded-lg transition-colors duration-150'
+                                    >
+                                        <Download size={15} />
+                                    </a>
+                                ) : (
+                                    <button
+                                        onClick={handleCopy}
+                                        className='flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.05] rounded-lg transition-colors duration-150 bg-transparent border-none cursor-pointer'
+                                    >
+                                        {copied ? <Check size={15} /> : <Copy size={15} />}
+                                    </button>
+                                )}
                             </div>
 
                             {canPreview &&
@@ -123,7 +166,7 @@ function Artifact() {
                                             : "text-slate-500 hover:text-slate-200"
                                             }`}
                                     >
-                                        <Code2 size={11} /> Code
+                                        {isDoc ? <><FileText size={11} /> Content</> : <><Code2 size={11} /> Code</>}
                                     </button>
 
                                     <button
@@ -138,7 +181,7 @@ function Artifact() {
 
 
                         </div>
-                        {tab === "code" &&
+                        {tab === "code" && !isDoc &&
                             <div className='flex h-auto border-b border-white/[0.06] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shrink-0'>
                                 {
                                     artifacts[0]?.files?.map((f, index) => (
@@ -168,12 +211,23 @@ function Artifact() {
                                     transition={{ duration: 0.5 }}
                                     className='w-full h-full  '
                                 >
-                                    <iframe
-                                        title='preview'
-                                        srcDoc={previewDoc}
-                                        sandbox='allow-scripts'
-                                        className='w-full h-full  bg-white'
-                                    />
+                                    {isDoc ? (
+                                        // No sandbox: it would block the browser's PDF viewer
+                                        // and the Office viewer's scripts
+                                        <iframe
+                                            key={docSrc}
+                                            title={isPpt ? 'ppt-preview' : 'pdf-preview'}
+                                            src={docSrc}
+                                            className='w-full h-full bg-white'
+                                        />
+                                    ) : (
+                                        <iframe
+                                            title='preview'
+                                            srcDoc={previewDoc}
+                                            sandbox='allow-scripts'
+                                            className='w-full h-full  bg-white'
+                                        />
+                                    )}
                                 </motion.div>
                             ) : (
                                 <motion.div
@@ -235,8 +289,8 @@ function Artifact() {
     rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[12px] font-medium shadow-lg
     shadow-indigo-500/20 border-none cursor-pointer transition-colors duration-150"
             >
-                <Code2 size={13} />
-                View Code
+                <HeaderIcon size={13} />
+                {isPpt ? "View Slides" : isPdf ? "View PDF" : "View Code"}
             </button>
             <AnimatePresence>
                 {mobileOpen && <>

@@ -1,15 +1,22 @@
-import { Check, Copy, ExternalLink, X } from 'lucide-react'
+import { Check, Copy, Download, Eye, ExternalLink, FileText, Pin, PinOff, Presentation, Trash2, X } from 'lucide-react'
 import React, { Children, useState } from 'react'
+import { useDispatch } from 'react-redux'
+import { openInViewer } from '../redux/messageSlice.js'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-function MessageBubble({ role, content, images }) {
+function MessageBubble({ id, messageId, role, content, images = [], artifacts = [], isPinned = false, onPin, onDelete }) {
   const isUser = role === "user"
+  const dispatch = useDispatch()
+  // Generated documents (PDF / PPT) get a card with View + Download
+  const documents = artifacts.filter(a => (a?.type === "pdf" || a?.type === "ppt") && a?.url)
 
   const [lightBox, setLightBox] = useState(null)
   const [copiedCode, setCopiedCode] = useState("")
+  const [copiedMessage, setCopiedMessage] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const copyCode = async (code) => {
     await navigator.clipboard.writeText(code)
@@ -19,20 +26,87 @@ function MessageBubble({ role, content, images }) {
     }, 2000);
   }
 
-
+  const copyMessage = async () => {
+    if (!content) return
+    await navigator.clipboard.writeText(content)
+    setCopiedMessage(true)
+    setTimeout(() => {
+      setCopiedMessage(false)
+    }, 2000);
+  }
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`group relative flex ${isUser ? "justify-end" : "justify-start"} my-1.5`}>
       <div
-        className={`w-fit max-w-[92vw] md:max-w-[72%]
+        className={`relative w-fit max-w-[92vw] md:max-w-[72%]
         px-4 py-2.5 rounded-2xl
-        break-words overflow-hidden
-        leading-relaxed
+        break-words
+        leading-relaxed transition-all duration-200
         ${isUser
             ? "bg-gradient-to-br from-indigo-500 to-violet-700 text-white rounded-tr-sm"
-            : "text-slate-200 rounded-tl-sm"
-          }`}
+            : "text-slate-200 rounded-tl-sm bg-white/[0.03] border border-white/[0.06]"
+          }
+        ${isPinned ? (isUser ? "ring-2 ring-indigo-300/80 shadow-[0_0_15px_rgba(99,102,241,0.25)]" : "border-amber-500/40 bg-amber-500/[0.03] shadow-[0_0_15px_rgba(245,158,11,0.15)]") : ""}
+        `}
       >
+        {/* Pinned Badge */}
+        {isPinned && (
+          <div className={`flex items-center gap-1 text-[11px] font-medium mb-1.5 px-0.5 ${isUser ? "text-indigo-200" : "text-amber-400"}`}>
+            <Pin size={11} className="rotate-45 fill-current" />
+            <span>Pinned</span>
+          </div>
+        )}
+
+        {/* Hover Action Bar */}
+        <div className={`absolute -top-3.5 ${isUser ? "left-2" : "right-2"} opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 bg-[#151821] border border-white/10 shadow-lg rounded-lg p-0.5 z-20`}>
+          {showDeleteConfirm ? (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 text-[11px]">
+              <span className="text-slate-300 font-medium">Delete?</span>
+              <button
+                onClick={() => {
+                  onDelete && onDelete(messageId || id);
+                  setShowDeleteConfirm(false);
+                }}
+                className="px-1.5 py-0.5 bg-red-500/90 hover:bg-red-500 text-white rounded text-[10px] font-medium cursor-pointer transition-colors"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 text-slate-300 rounded text-[10px] cursor-pointer transition-colors"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => onPin && onPin(messageId || id)}
+                title={isPinned ? "Unpin message" : "Pin message"}
+                className={`p-1.5 rounded-md hover:bg-white/10 transition-colors cursor-pointer ${isPinned ? "text-amber-400" : "text-slate-400 hover:text-white"}`}
+              >
+                {isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+              </button>
+
+              <button
+                onClick={copyMessage}
+                title="Copy message"
+                className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                {copiedMessage ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+              </button>
+
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                title="Delete message"
+                className="p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
+        </div>
+
         {images.length > 0 && (
           <div className='flex flex-wrap gap-3 mt-4'>
             {
@@ -182,6 +256,40 @@ function MessageBubble({ role, content, images }) {
         >
           {content}
         </Markdown>
+
+        {documents.map((doc) => {
+          const DocIcon = doc.type === "ppt" ? Presentation : FileText
+          return (
+            <div
+              key={doc.id || doc.url}
+              className='mt-1 mb-2 flex items-center gap-3 p-3 rounded-xl border border-white/[0.08] bg-white/[0.03] w-80 max-w-full'
+            >
+              <div className='flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 shrink-0'>
+                <DocIcon className='text-indigo-400' size={16} />
+              </div>
+              <div className='flex-1 min-w-0'>
+                <div className='text-[13px] font-medium text-slate-200 truncate' title={doc.title}>{doc.title}</div>
+                <div className='text-[11px] text-slate-500 uppercase tracking-wide whitespace-nowrap'>{doc.type === "ppt" ? "Slides" : "PDF"}</div>
+              </div>
+              <button
+                onClick={() => dispatch(openInViewer(doc))}
+                title='Open in side viewer'
+                className='flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white border-none cursor-pointer transition-colors'
+              >
+                <Eye size={12} /> View
+              </button>
+              <a
+                href={doc.url}
+                target='_blank'
+                rel='noopener noreferrer'
+                title='Download'
+                className='flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors'
+              >
+                <Download size={14} />
+              </a>
+            </div>
+          )
+        })}
 
 
       </div>

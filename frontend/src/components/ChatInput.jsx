@@ -6,6 +6,8 @@ import { addMessage, setArtifacts, setIsLoading, setMessages } from '../redux/me
 import { createConversation } from '../features/createConversation.js'
 import { addConversation, setConvTitle, setSelectedConversation } from '../redux/conversationSlice.js'
 import { updateConversation } from '../features/updateConversation.js'
+import getCurrentUser from '../features/getCurrentUser.js'
+import { setUserdata } from '../redux/userSlice.js'
 import { useRef } from 'react'
 //import { agent } from '../../../backend/services/agent/contollers/agent.controller.js'
 //import { saveMessage } from '../../../backend/services/chat/contollers/chat.contoller.js'
@@ -56,7 +58,7 @@ function ChatInput() {
     const toggleMic = () => {
         if (!recognitionRef.current) {
             alert("speech recognition not supported");
-             return;
+            return;
         }
 
         if (listening) {
@@ -67,7 +69,16 @@ function ChatInput() {
             setListening(true);
         }
     };
+
+    const handleKeyDown = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    };
+
     const handleSendMessage = async () => {
+        if ((!value.trim() && !selectedFile) || isLoading) return;
         dispatch(setIsLoading(true))
         let conversation = selectedConversation
         if (!conversation) {
@@ -101,10 +112,14 @@ function ChatInput() {
         const data = await sendMessage(formData)
         setSelectedFile(null)
         dispatch(setIsLoading(false))
-        dispatch(setArtifacts(data.artifacts || []))
+        dispatch(setArtifacts(data?.artifacts || []))
 
-        dispatch(addMessage({ role: "assistant", content: data?.answer, images: data?.images }))
+        dispatch(addMessage({ role: "assistant", content: data?.answer, images: data?.images, artifacts: data?.artifacts }))
         console.log(data)
+
+        // Credits were deducted server-side; pull the updated balance into the UI.
+        const user = await getCurrentUser()
+        if (user) dispatch(setUserdata(user))
     }
 
     const agents = [
@@ -157,7 +172,7 @@ function ChatInput() {
                         const Icon = agent.icons
 
                         return (
-                            <div key={agents.id}
+                            <div key={agent.id}
                                 onClick={() => setSelectAgent(agent.label)}
                                 className={`
           flex-shrink-0
@@ -239,6 +254,7 @@ function ChatInput() {
                 <textarea
                     placeholder='Ask Anything...'
                     onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     value={value}
                     className='w-full bg-transparent outline-none resize-none text-[14px] text-slate-200 placeholder:text-slate-600 leading-relaxed [scrollbar-width:none] [&::-webkit-scrollbar]:hidden disabled:opacity-50'
                     rows={3}
@@ -263,17 +279,17 @@ function ChatInput() {
                         <button
                             onClick={toggleMic}
                             className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-150 cursor-pointer ${listening
-                                    ? "bg-red-500 text-white"
-                                    : "text-slate-600 hover:bg-white/[0.05]"
+                                ? "bg-red-500 text-white"
+                                : "text-slate-600 hover:bg-white/[0.05]"
                                 }`}
                         >
                             {listening ? <Mic size={16} /> : <MicOff size={16} />}
                         </button>
                     </div>
                     <button
-                        disabled={!value && isLoading}
+                        disabled={(!value.trim() && !selectedFile) || isLoading}
                         onClick={handleSendMessage}
-                        className={`flex items-center justify-center w-8 h-8 rounded-lg border-none cursor-pointer transition-all duration-150 ${value.trim() ? "bg-linear-to-br from-indigo-500 to-violet-700 hover:opacity-90 text-white" : "bg-white/[0.05] text-slate-600 cursor-not-allowed"}`}
+                        className={`flex items-center justify-center w-8 h-8 rounded-lg border-none cursor-pointer transition-all duration-150 ${value.trim() || selectedFile ? "bg-linear-to-br from-indigo-500 to-violet-700 hover:opacity-90 text-white" : "bg-white/[0.05] text-slate-600 cursor-not-allowed"}`}
                     >
                         <Send size={15} />
                     </button>

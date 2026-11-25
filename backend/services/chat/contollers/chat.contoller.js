@@ -31,21 +31,17 @@ export const getConversations = async (req,res)=>{
 
 export const updateConversation = async (req,res)=>{
     try {
-        console.log(req.body);   // <-- add this
-        const {id,title}=req.body
-    //     const conversation=await Conversation.findByIdAndUpdate(id,{
-    //         title
-    //     },
-    // {
+        const { id, title, isPinned } = req.body;
+        const updateData = {};
+        if (title !== undefined) updateData.title = title;
+        if (isPinned !== undefined) updateData.isPinned = isPinned;
 
-    // })
-    const conversation = await Conversation.findByIdAndUpdate(
+        const conversation = await Conversation.findByIdAndUpdate(
             id,
-            { title },
+            updateData,
             { new: true }
         );
 
-         console.log(conversation);   // <-- add this
         return res.status(200).json(conversation)
     } catch (error) {
         return res.status(500).json({Message:`update conversation error in chat.controller.js ${error}`})
@@ -77,5 +73,56 @@ export const getMessage = async (req,res)=>{
         return res.status(200).json(messages)
     } catch (error) {
         return res.status(500).json({Message:`Get Message  error in chat.controller.js ${error}`})
+    }
+}
+
+export const deleteMessage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await Message.findByIdAndDelete(id);
+        return res.status(200).json({ message: "Message deleted successfully" });
+    } catch (error) {
+        return res.status(500).json({ Message: `Delete Message error in chat.controller.js ${error}` });
+    }
+}
+
+export const togglePinMessage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const message = await Message.findById(id);
+        if (!message) {
+            return res.status(404).json({ Message: "Message not found" });
+        }
+        message.isPinned = !message.isPinned;
+        await message.save();
+        return res.status(200).json(message);
+    } catch (error) {
+        return res.status(500).json({ Message: `Toggle Pin error in chat.controller.js ${error}` });
+    }
+}
+
+export const deleteConversation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await Conversation.findByIdAndDelete(id);
+        await Message.deleteMany({ conversationId: id });
+        return res.status(200).json({ message: "Conversation and messages deleted successfully" });
+    } catch (error) {
+        return res.status(500).json({ Message: `Delete conversation error in chat.controller.js ${error}` });
+    }
+}
+
+export const togglePinConversation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const conversation = await Conversation.findById(id);
+        if (!conversation) {
+            return res.status(404).json({ Message: "Conversation not found" });
+        }
+        conversation.isPinned = !conversation.isPinned;
+        await conversation.save();
+        return res.status(200).json(conversation);
+    } catch (error) {
+        return res.status(500).json({ Message: `Toggle Pin Conversation error in chat.controller.js ${error}` });
     }
 }

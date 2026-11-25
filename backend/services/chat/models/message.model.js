@@ -9,6 +9,7 @@ const artifactSchema=new mongoose.Schema({
     id:Number,
     type:String,
     title:String,
+    url:String, // signed link for file artifacts (e.g. type "pdf")
     files:[fileSchema]
 },{
     _id:false
@@ -25,8 +26,11 @@ const messageSchema=new mongoose.Schema({
     },
     content:String,
     images:[String],
-    artifacts :[artifactSchema] 
-
+    artifacts :[artifactSchema],
+    isPinned: {
+        type: Boolean,
+        default: false
+    }
 },{
     timestamps:true
 })

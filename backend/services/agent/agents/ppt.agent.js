@@ -54,6 +54,14 @@ ${state.prompt}
 
         const downloadUrl = await getFromS3(filename, 24 * 60 * 60);
 
+        // Plain-text outline shown in the side viewer's "Content" tab
+        const outline = [
+            `# ${data.title}`,
+            data.subtitle ? `_${data.subtitle}_` : "",
+            ...(data.slides || []).map((s, i) =>
+                `## Slide ${i + 1}: ${s.title}\n${(s.points || []).map(p => `- ${p}`).join("\n")}`)
+        ].filter(Boolean).join("\n\n")
+
         return {
             ...state,
             aiResponse: `
@@ -63,8 +71,17 @@ ${state.prompt}
 
 📥 [Download PPT](${downloadUrl})
 
-_Link expires in 10 minutes._
-`
+_Link expires in 24 hours._
+`,
+            artifacts: [
+                {
+                    id: Date.now(),
+                    type: "ppt",
+                    title: data.title,
+                    url: downloadUrl,
+                    files: [{ name: "slides.md", content: outline }]
+                }
+            ]
         }
 
     } catch (error) {

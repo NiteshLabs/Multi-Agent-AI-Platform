@@ -10,23 +10,25 @@ export const searchAgent = async (state) => {
         })
         await deductCredits(state.userId, "search")
         console.log("search is agent")
+        const topImages = Array.isArray(results?.images) ? results.images.slice(0, 5) : [];
         return {
             ...state,
             searchResults: results,
-            images: results.images
+            images: topImages
         }
     } catch (error) {
+        console.error("Search agent error:", error);
         if (error.status == 429) {
             return {
                 ...state,
-                searchResults: [],
+                searchResults: null,
                 images: [],
-                aiResponse: error?.data?.message
+                aiResponse: error?.data?.message || "Search rate limit reached. Please wait a moment."
             }
         }
         return {
             ...state,
-            searchResults: [],
+            searchResults: null,
             images: []
         }
     }

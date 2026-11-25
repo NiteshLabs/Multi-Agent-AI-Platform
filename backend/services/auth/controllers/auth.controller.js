@@ -3,6 +3,34 @@ import { app } from "../config/firebase.js"
 import crypto from "node:crypto";
 import User from "../models/user_model.js";
 import redis from "../../../shared/redis/redis.js";
+
+// Copies the user's latest DB values into their live session (what /api/me returns).
+// "user-session-<id>" holds {"sessionId": "<uuid>"}, so it must be parsed, not used raw.
+const refreshSession = async (user) => {
+    const pointer = await redis.get(`user-session-${user._id}`)
+    if (!pointer) return
+
+    let sessionId
+    try {
+        sessionId = JSON.parse(pointer).sessionId
+    } catch {
+        return
+    }
+    if (!sessionId) return
+
+    // XX: only update a session that still exists; KEEPTTL: don't extend its expiry.
+    await redis.set(`session-${sessionId}`, JSON.stringify({
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        plan: user.plan,
+        credits: user.credits,
+        totalCredits: user.totalCredits,
+        planExpiresAt: user.planExpiresAt
+    }), "KEEPTTL", "XX")
+}
+
 export const login = async (req, res) => {
     try {
         const { token } = req.body
@@ -90,22 +118,7 @@ export const updateUserPayment = async (req, res) => {
         user.planExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         await user.save()
 
-        //const sessionId = req.cookie?.session
-        const sessionId = await redis.get(`user-session-${user?._id}`)
-        await redis.set(`user-session-${user._id}`, JSON.stringify({
-            sessionId: sessionId
-        }))
-        await redis.set(`session-${sessionId}`, JSON.stringify({
-            userId: user._id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            plan: user.plan,
-            credits: user.credits,
-            totalCredits: user.totalCredits,
-            planExpiresAt: user.planExpiresAt
-
-        }), "EX", 7 * 24 * 60 * 60)
+        await refreshSession(user)
 
         return res.status(200).json({ success: true })
 
@@ -128,7 +141,7 @@ export const deductCredits = async (req, res) => {
         const user = await User.findById(userId)
 
         if (!user) {
-            return redis.status(400).json({ message: "user not found in auth.controller.js" })
+            return res.status(400).json({ message: "user not found in auth.controller.js" })
         }
 
         const requiredCredits = COST[agent] || 1
@@ -140,21 +153,7 @@ export const deductCredits = async (req, res) => {
         user.credits -= requiredCredits
         await user.save()
 
-        const sessionId = await redis.get(`user-session-${user?._id}`)
-        await redis.set(`user-session-${user._id}`, JSON.stringify({
-            sessionId: sessionId
-        }))
-        await redis.set(`session-${sessionId}`, JSON.stringify({
-            userId: user._id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            plan: user.plan,
-            credits: user.credits,
-            totalCredits: user.totalCredits,
-            planExpiresAt: user.planExpiresAt
-
-        }), "EX", 7 * 24 * 60 * 60)
+        await refreshSession(user)
 
         return res.status(200).json({ success: true , credits : user.credits})
     } catch (error) {

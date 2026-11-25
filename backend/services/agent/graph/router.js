@@ -1,13 +1,8 @@
 import { getModel } from "../config/llmModel.js"
 
 export const router = async (state) => {
-    if (state.agent && state.agent != "auto") {
-        return {
-            ...state,
-            agent: state.agent
-        }
-    }
-
+    // An attached file decides the agent, whatever agent chip is selected:
+    // a question about an uploaded PDF must go to pdfRag, not the PDF generator.
     if (state.file) {
         if (state.file.mimetype === "application/pdf") {
             return {
@@ -21,6 +16,13 @@ export const router = async (state) => {
                 ...state,
                 agent: "imageAnalyzer"
             }
+        }
+    }
+
+    if (state.agent && state.agent != "auto") {
+        return {
+            ...state,
+            agent: state.agent
         }
     }
 

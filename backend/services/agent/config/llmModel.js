@@ -9,30 +9,28 @@ const groq = new ChatGroq({
     apiKey: process.env.GROQ_API_KEY
 
 })
-// const gemini = new ChatGroq({
-//     model: "openai/gpt-4.1-mini",
-//     apiKey:process.env.GROQ_API_KEY
-
-// })
-
+const groqFallback = new ChatGroq({
+    model: "openai/gpt-oss-20b",
+    apiKey: process.env.GROQ_API_KEY
+})
 
 const gemini = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-pro",
+    model: "gemini-3.5-flash",
     apiKey: process.env.GOOGLE_API_KEY
-
-
 })
+
 const openrouter = new ChatOpenRouter({
     model: "deepseek/deepseek-chat",
     temperature: 0,
     maxTokens: 2500
-
 })
 
 export const getModel = async (agent) => {
     switch (agent) {
         case "chat":
             return groq;
+        case "chatFallback":
+            return groqFallback;
         case "search":
             return groq;
         case "coding":
