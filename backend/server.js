@@ -33,3 +33,22 @@ process.env.PORT = String(publicPort)
 await import("./gateway/index.js")
 
 console.log(`[server] all services loaded; gateway on public port ${publicPort}`)
+
+// Keep-alive: Render's free plan sleeps after 15 minutes without inbound
+// traffic. Pinging our own PUBLIC url (through Render's proxy, so it counts as
+// inbound traffic) every 10 minutes keeps the instance awake.
+// Render sets RENDER_EXTERNAL_URL automatically; KEEP_ALIVE_URL overrides it.
+// Nothing runs locally, where neither variable is set.
+const keepAliveUrl = process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL
+if (keepAliveUrl) {
+    const intervalMs = 10 * 60 * 1000
+    setInterval(async () => {
+        try {
+            const res = await fetch(keepAliveUrl, { signal: AbortSignal.timeout(30_000) })
+            console.log(`[keep-alive] ${res.status}`)
+        } catch (err) {
+            console.log(`[keep-alive] ping failed: ${err.message}`)
+        }
+    }, intervalMs)
+    console.log(`[keep-alive] pinging ${keepAliveUrl} every 10 minutes`)
+}
